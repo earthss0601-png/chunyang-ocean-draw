@@ -108,7 +108,14 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 @keyframes floaty { 50% { transform: translateY(-5px); } }
 
 /* 오른쪽 패널 */
-.mode-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mode-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.shark { position: absolute; left: 0; top: 0; z-index: 4; width: var(--sw, 150px); pointer-events: none; will-change: transform; }
+.shark svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px #0008); }
+.shark.flip svg { transform: scaleX(-1); }
+.fish.eaten { opacity: 0; transition: opacity .25s ease-out; }
+.fish.eaten svg { transform: scale(.2) rotate(40deg); transition: transform .25s ease-out; }
+.fish.survivor .tag { background: var(--sun); color: var(--abyss); border-color: var(--sun); }
+.fish.survivor svg { filter: drop-shadow(0 0 14px var(--sun)); }
 .mode-pick button { border: 1px solid var(--line); background: var(--deep); border-radius: 14px; padding: 8px 4px; cursor: pointer; display: grid; gap: 2px; justify-items: center; font-family: var(--f-display); font-size: 18px; }
 .mode-pick button small { font-family: var(--f-body); font-size: 11px; color: var(--muted); line-height: 1.3; }
 .mode-pick button[aria-pressed="true"] { background: var(--sun); color: var(--abyss); border-color: var(--sun); }
@@ -218,6 +225,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
           <button type="button" data-style="fish" aria-pressed="true">낚시<small>바늘로 낚아요</small></button>
           <button type="button" data-style="race" aria-pressed="false">물고기 경주<small>먼저 도착!</small></button>
           <button type="button" data-style="bubble" aria-pressed="false">물방울<small>마지막 1개</small></button>
+          <button type="button" data-style="shark" aria-pressed="false">상어 술래<small>끝까지 살아남기</small></button>
         </div>
         <button type="button" class="draw" id="drawBtn">낚싯대 던지기!</button>
         <p class="hint">스페이스바를 눌러도 추첨해요.</p>
@@ -272,7 +280,8 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
   var STYLES = {
     fish: { btn: '낚싯대 던지기!', idle: '누가 낚일까요?', congrats: '낚였다! 축하합니다!' },
     race: { btn: '경주 출발!', idle: '누가 먼저 도착할까요?', congrats: '1등으로 도착! 축하합니다!' },
-    bubble: { btn: '물방울 터뜨리기!', idle: '마지막 물방울은 누구?', congrats: '마지막까지 남았어요! 축하합니다!' }
+    bubble: { btn: '물방울 터뜨리기!', idle: '마지막 물방울은 누구?', congrats: '마지막까지 남았어요! 축하합니다!' },
+    shark: { btn: '상어 풀어 주기!', idle: '상어를 피해 살아남을 물고기는?', congrats: '상어를 피해 살아남았어요! 축하합니다!' }
   };
   var state = { names: DEFAULT_NAMES.slice(), winners: [], exclude: true, sound: true, style: 'fish' };
   try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && Array.isArray(saved.names)) state = Object.assign(state, saved); } catch (e) {}
@@ -336,6 +345,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     var sz = tankSize();
     var t = (now - t0);
     if (mode === 'frenzy') mult = 1 + 4 * Math.min(1, t / 500);
+    else if (mode === 'shark') mult = Math.min(2.2, mult + dt * 2);
     else if (mult > 1) mult = Math.max(1, mult - dt * 3);
     fishes.forEach(function (f) {
       if (!f.w) f.w = f.el.offsetWidth || 80;
@@ -346,6 +356,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
       if (f.x > sz.w - f.w - 4) { f.x = sz.w - f.w - 4; f.vx = -Math.abs(f.vx); }
       var yy = f.y + Math.sin(f.ph) * f.amp;
       yy = Math.max(46, Math.min(sz.h - 70, yy));
+      f.ny = yy;
       f.el.style.transform = 'translate(' + f.x.toFixed(1) + 'px,' + yy.toFixed(1) + 'px)';
       f.el.classList.toggle('flip', f.vx < 0);
     });
@@ -397,6 +408,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     if (calm) { mode = 'done'; showReveal(); return; }
     if (state.style === 'race') { mode = 'show'; runRace(list, pick); return; }
     if (state.style === 'bubble') { mode = 'show'; runBubble(list, pick); return; }
+    if (state.style === 'shark') { mode = 'shark'; runShark(pick); return; }
     target = fishes.filter(function (f) { return f.p.id === pick.id; })[0];
     if (!target) { mode = 'done'; showReveal(); return; }
     mode = 'frenzy'; t0 = performance.now();
@@ -513,6 +525,83 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     showReveal();
   }
 
+  // ---------- 상어 술래: 가장 가까운 물고기부터 잡아먹고, 마지막 한 마리가 당첨 ----------
+  var SHARK_SVG = '<svg viewBox="0 0 160 80" aria-hidden="true">' +
+    '<path d="M22 40 L2 14 Q10 40 2 66 Z" fill="#6c8aa3"/>' +
+    '<path d="M70 18 L84 0 L96 20 Z" fill="#6c8aa3"/>' +
+    '<path d="M20 40 Q60 8 120 22 Q152 30 158 42 Q150 54 120 60 Q60 72 20 40 Z" fill="#8aa6bd"/>' +
+    '<path d="M40 46 Q80 66 124 58 Q148 54 156 44 Q140 50 120 50 Q80 54 40 46 Z" fill="#eef4f8"/>' +
+    '<path d="M86 52 L76 70 L98 56 Z" fill="#6c8aa3"/>' +
+    '<circle cx="128" cy="33" r="5" fill="#0b1b2b"/><circle cx="129.5" cy="31.5" r="1.6" fill="#fff"/>' +
+    '<path d="M126 48 L132 52 L136 47 L140 51 L144 46 L148 49" stroke="#fff" stroke-width="2.2" fill="none" stroke-linejoin="round"/>' +
+    '<path d="M100 30 q3 6 0 12 M106 30 q3 6 0 12 M112 30 q3 6 0 12" stroke="#6c8aa3" stroke-width="1.6" fill="none"/></svg>';
+  var shark = null;
+  async function runShark(pick) {
+    var sz = tankSize();
+    var sw = Math.round(Math.max(100, Math.min(170, sz.w * .17)));
+    shark = document.createElement('div'); shark.className = 'shark';
+    shark.style.setProperty('--sw', sw + 'px'); shark.innerHTML = SHARK_SVG;
+    tank.appendChild(shark);
+    var sh = sw * .5, mouthX = sw * .92, mouthY = sh * .6;
+    var sx = -sw - 20, sy = sz.h * .45;
+    function put(x, y, faceLeft) {
+      shark.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+      shark.classList.toggle('flip', !!faceLeft);
+    }
+    put(sx, sy, false);
+    banner.textContent = '상어가 나타났다!';
+    tone('bite');
+    await sleep(700);
+    var victims = fishes.filter(function (f) { return f.p.id !== pick.id; });
+    var total = victims.length, eaten = 0;
+    while (victims.length) {
+      // 지금 상어 입과 가장 가까운 물고기
+      var mx = sx + (shark.classList.contains('flip') ? sw - mouthX : mouthX), my = sy + mouthY;
+      victims.sort(function (a, b) { return dist(a, mx, my) - dist(b, mx, my); });
+      var v = victims.shift();
+      var left = victims.length;
+      var speed = left < 3 ? 380 : 480 + 800 * (eaten / Math.max(1, total));
+      await new Promise(function (done) {
+        var fx0 = sx, fy0 = sy, t0s = performance.now();
+        var d0 = dist(v, mx, my), dur = Math.max(230, Math.min(1200, d0 / speed * 1000));
+        (function step(now) {
+          var k = Math.min(1, (now - t0s) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          var vx = (v.x || 0) + (v.w || 60) / 2, vy = (v.ny != null ? v.ny : v.y) + 18;
+          var faceLeft = vx < fx0 + sw / 2;
+          var tx = faceLeft ? vx - (sw - mouthX) : vx - mouthX, ty = vy - mouthY;
+          sx = fx0 + (tx - fx0) * e; sy = fy0 + (ty - fy0) * e;
+          put(sx, sy, faceLeft);
+          if (k < 1) requestAnimationFrame(step); else done();
+        })(t0s);
+      });
+      v.el.classList.add('eaten');
+      fishes = fishes.filter(function (f) { return f !== v; });
+      eaten++;
+      tone('chomp');
+      banner.textContent = left ? '남은 물고기 ' + (left + 1) + '마리' : '마지막 한 마리!';
+      document.getElementById('poolCount').textContent = '수족관 속 물고기 ' + fishes.length + '마리';
+      setTimeout(function (el) { el.remove(); }.bind(null, v.el), 400);
+      if (left < 3) await sleep(left === 0 ? 300 : 500);
+    }
+    // 상어는 떠나고, 살아남은 물고기가 반짝
+    var exitX = sx + sw / 2 < sz.w / 2 ? -sw - 40 : sz.w + 40;
+    await new Promise(function (done) {
+      var fx0 = sx, t0s = performance.now();
+      (function step(now) {
+        var k = Math.min(1, (now - t0s) / 700);
+        put(fx0 + (exitX - fx0) * k * k, sy, exitX < fx0);
+        if (k < 1) requestAnimationFrame(step); else done();
+      })(t0s);
+    });
+    var surv = fishes.filter(function (f) { return f.p.id === pick.id; })[0];
+    if (surv) surv.el.classList.add('survivor');
+    banner.textContent = '살아남았다!';
+    tone('bite');
+    await sleep(1200);
+    showReveal();
+  }
+  function dist(f, x, y) { var fx = (f.x || 0) + (f.w || 60) / 2, fy = (f.ny != null ? f.ny : f.y) + 18; return Math.hypot(fx - x, fy - y); }
+
   function currentX(f) { return f.x; }
   function currentY(f) { var m = /translate\([\d.-]+px,([\d.-]+)px\)/.exec(f.el.style.transform); return m ? +m[1] : f.y; }
 
@@ -535,6 +624,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     if (reveal.hidden) return;
     reveal.hidden = true; pending = null; target = null; mode = 'idle';
     stage.hidden = true; stage.innerHTML = ''; tank.classList.remove('staging');
+    if (shark) { shark.remove(); shark = null; }
     banner.textContent = (STYLES[state.style] || STYLES.fish).idle;
     drawBtn.disabled = false;
     lockModes(false);
@@ -651,6 +741,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     if (kind === 'tick') beep(700 + Math.random() * 300, .05, 'square', .05);
     else if (kind === 'plop') beep(300, .15, 'sine', .15);
     else if (kind === 'pop') beep(900 + Math.random() * 500, .07, 'sine', .12);
+    else if (kind === 'chomp') { beep(180, .09, 'square', .1); beep(120, .1, 'square', .08, .06); }
     else if (kind === 'bite') { beep(520, .08, 'triangle', .15); beep(780, .1, 'triangle', .15, .08); }
     else if (kind === 'fanfare') [523, 659, 784, 1047].forEach(function (f, i) { beep(f, i === 3 ? .6 : .16, 'triangle', .16, i * .13); });
   }
