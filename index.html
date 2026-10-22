@@ -9,7 +9,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Noto+Sans+KR:wght@700;900&display=swap">
 <style>
 /* Layout: 밤바다 수족관이 화면의 주인공. 학생 이름이 물고기가 되어 헤엄치고, 낚싯바늘이 당첨자를 낚아 올린다. 오른쪽(좁으면 아래)에 경품과 당첨자 목록 */
 :root {
@@ -24,6 +24,7 @@
   --kelp: #3fd18f;
   --panel: #0b2742;
   --f-display: "Jua", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --f-name: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --f-body: "Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   color-scheme: dark;
 }
@@ -66,7 +67,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 
 .fish { position: absolute; left: 0; top: 0; z-index: 3; will-change: transform; display: grid; justify-items: center; pointer-events: none; }
 .fish svg { display: block; width: var(--w, 64px); height: auto; filter: drop-shadow(0 4px 6px #0006); }
-.fish .tag { margin-top: -2px; font-family: var(--f-display); font-size: var(--fs, 15px); background: #041a2ecc; border: 1px solid #ffffff33; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
+.fish .tag { margin-top: -2px; font-family: var(--f-name); font-weight: 700; font-size: var(--fs, 17px); background: #041a2ee6; border: 1px solid #ffffff33; padding: 1px 9px; border-radius: 999px; white-space: nowrap; }
 .fish.flip svg { transform: scaleX(-1); }
 .fish.caught .tag { background: var(--sun); color: var(--abyss); border-color: var(--sun); }
 
@@ -101,7 +102,7 @@ header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: 
 .winners li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--deep); }
 .winners .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-width: 22px; }
 .winners .who { min-width: 0; }
-.winners .who b { font-family: var(--f-display); font-weight: 400; font-size: 19px; }
+.winners .who b { font-family: var(--f-name); font-weight: 700; font-size: 18px; }
 .winners .who small { display: block; color: var(--sun); font-size: 13px; }
 .mini { border: 0; background: none; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; white-space: nowrap; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
@@ -129,7 +130,7 @@ textarea { width: 100%; min-height: 260px; resize: vertical; background: var(--d
 }
 .reveal-card .prize { font-family: var(--f-display); color: var(--sun); font-size: clamp(22px, 3vw, 34px); }
 .reveal-card .congrats { font-family: var(--f-display); font-size: clamp(20px, 2.4vw, 28px); color: var(--muted); }
-.reveal-card .name { font-family: var(--f-display); font-size: clamp(64px, 12vw, 150px); line-height: 1.05; color: var(--foam); text-shadow: 0 6px 0 #0006; }
+.reveal-card .name { font-family: var(--f-name); font-weight: 900; font-size: clamp(64px, 12vw, 150px); line-height: 1.05; color: var(--foam); text-shadow: 0 6px 0 #0006; }
 .reveal-card .grade { font-size: clamp(18px, 2.2vw, 26px); color: var(--muted); }
 .reveal-card .fishbig { width: clamp(90px, 12vw, 140px); animation: wiggle 1.2s ease-in-out infinite; }
 .reveal-card .close { margin-top: 10px; }
@@ -230,7 +231,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
     '3학년 김가연', '3학년 김아영', '3학년 이민희', '3학년 이현진', '3학년 이현지'
   ];
   var COLORS = ['#ffb347', '#ff7a59', '#ff8fab', '#74c0fc', '#63e6be', '#ffd43b', '#b197fc', '#a9e34b', '#4dabf7', '#ffa8a8'];
-  var KEY = 'chunyang-ocean-draw-v1';
+  var KEY = 'chunyang-ocean-draw-v2';
 
   var state = { names: DEFAULT_NAMES.slice(), winners: [], exclude: true, sound: true };
   try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && Array.isArray(saved.names)) state = Object.assign(state, saved); } catch (e) {}
@@ -272,7 +273,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
       var el = document.createElement('div');
       el.className = 'fish';
       el.style.setProperty('--w', Math.round(62 * scale) + 'px');
-      el.style.setProperty('--fs', Math.round(15 * scale) + 'px');
+      el.style.setProperty('--fs', Math.round(17 * scale) + 'px');
       el.innerHTML = fishSvg(p.color) + '<span class="tag"></span>';
       el.querySelector('.tag').textContent = p.name;
       tank.appendChild(el);
